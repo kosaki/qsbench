@@ -8,15 +8,71 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <string.h>
 
 #define MAX_PROCS	1024
 
 int verbose = 0;
+int use_mmap = 0;
 
 void quick_sort(int a[], int l, int r);
 void do_qsort(int n, int s, int sleep_time);
 void start_procs(int n, int p, int s, int sleep_time);
 void usage(void);
+
+static void* mmap_alloc(size_t size)
+{
+	char template[32];
+	int fd;
+	char c = 0;
+	void *mapaddr;
+
+	strcpy(template, "/tmp/qsbench.XXXXXX");
+	fd = mkstemp(template);
+	if (fd < 0) {
+		printf("get_tmpfile: mkstemp failed.\n");
+		exit(1);
+	}
+	/* We does not need the file entry */
+	unlink(template);
+
+	/* Extend the file */
+	if (lseek(fd, size, SEEK_SET) == -1) {
+		perror("lseek");
+		exit(1);
+	}
+	if (write(fd, &c, 1) != 1) {
+		perror("write");
+		exit(1);
+	}
+	lseek(fd, 0, SEEK_SET);
+
+	mapaddr = mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC,
+		       MAP_SHARED, fd, 0);
+	if (mapaddr == MAP_FAILED) {
+		perror("mmap");
+		exit(1);
+	}
+
+	return mapaddr;
+}
+
+void* xalloc(size_t size)
+{
+	if (use_mmap)
+		return mmap_alloc(size);
+	else
+		return malloc(size);
+}
+
+void xfree(void* p, size_t size)
+{
+	if (use_mmap)
+		munmap(p, size);
+	else
+		free(p);
+}
 
 /**
  * quick_sort - Sort in the range [l, r]
@@ -71,8 +127,9 @@ void quick_sort(int a[], int l, int r)
 void do_qsort(int n, int s, int sleep_time)
 {
 	int * a, i, errors = 0;
+	size_t size = sizeof(int) * n;
 
-	if ((a = malloc(sizeof(int) * n)) == NULL) {
+	if ((a = xalloc(size)) == NULL) {
 		perror("malloc");
 		exit(1);
 	}
@@ -108,7 +165,7 @@ void do_qsort(int n, int s, int sleep_time)
 		fprintf(stderr, " *** WARNING ***  %d errors.\n", errors);
 
 	sleep(sleep_time);
-	free(a);
+	xfree(a, size);
 	exit(0);
 }
 
@@ -151,7 +208,7 @@ int main(int argc, char * argv[])
 		usage();
 
 	while (1) {
-		c = getopt(argc, argv, "hm:p:s:vz:V");
+		c = getopt(argc, argv, "hm:p:s:vz:VM");
 		if (c == -1)
 			break;
 
@@ -178,6 +235,9 @@ int main(int argc, char * argv[])
 			return 1;
 		case '?':
 			return 1;
+		case 'M':
+			use_mmap = 1;
+			break;
 		}
 	}
 
