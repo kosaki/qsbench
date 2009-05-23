@@ -17,8 +17,8 @@ int verbose = 0;
 int use_mmap = 0;
 
 void quick_sort(int a[], int l, int r);
-void do_qsort(int n, int s, int sleep_time);
-void start_procs(int n, int p, int s, int sleep_time);
+void do_qsort(long n, int s, int sleep_time);
+void start_procs(long n, int p, int s, int sleep_time);
 void usage(void);
 
 static void* mmap_alloc(size_t size)
@@ -124,9 +124,10 @@ void quick_sort(int a[], int l, int r)
 }
 
 
-void do_qsort(int n, int s, int sleep_time)
+void do_qsort(long n, int s, int sleep_time)
 {
-	int * a, i, errors = 0;
+	int * a, errors = 0;
+	long i;
 	size_t size = sizeof(int) * n;
 
 	if ((a = xalloc(size)) == NULL) {
@@ -156,7 +157,7 @@ void do_qsort(int n, int s, int sleep_time)
 	for (i = 0; i < n - 1; i++)
 		if (a[i] > a[i + 1]) {
 			errors++;
-			fprintf(stderr, "ERROR: i = %d\n", i);
+			fprintf(stderr, "ERROR: i = %ld\n", i);
 		}
 	if (verbose)
 		printf("done.\n");
@@ -170,7 +171,7 @@ void do_qsort(int n, int s, int sleep_time)
 }
 
 
-void start_procs(int n, int p, int s, int sleep_time)
+void start_procs(long n, int p, int s, int sleep_time)
 {
 	int i, pid[MAX_PROCS];
 	int status;
@@ -201,7 +202,8 @@ void usage(void)
 int main(int argc, char * argv[])
 {
 	char *m = "10", *p = "1", *s = "1", *st = "0";
-	int nr_elems, nr_procs, seed, sleep_time;
+	long nr_elems; 
+	int nr_procs, seed, sleep_time;
 	int c;
 
 	if (argc == 1)
@@ -241,7 +243,7 @@ int main(int argc, char * argv[])
 		}
 	}
 
-	nr_elems = (atoi(m) * 1048576) / 4;
+	nr_elems = atoi(m) * (1048576L / sizeof(int));
 	nr_procs = atoi(p);
 	seed = atoi(s);
 	sleep_time = atoi(st);
