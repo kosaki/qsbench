@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS = -O2 -Wall -Wstrict-prototypes
+CFLAGS = -O2 -Wall -Wstrict-prototypes -g
 
 all: qsbench bsbench
 
